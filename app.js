@@ -395,7 +395,7 @@ function markCorrect(message, points) {
   state.combo = Math.min(5, state.combo + 1);
   state.checked = true;
   activityCard.classList.add("success-burst");
-  playSound("correct");
+  playSound("success");
   showFeedback("good", `${message} +${earned} ball`);
   revealNext();
   renderStats();
@@ -492,6 +492,17 @@ function playSound(type) {
   try {
     audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
     const now = audioContext.currentTime;
+    if (type === "success") {
+      [
+        [523.25, 0],
+        [659.25, 0.07],
+        [783.99, 0.14],
+        [1046.5, 0.24]
+      ].forEach(([freq, offset], index) => {
+        bell(freq, now + offset, 0.18 - index * 0.02);
+      });
+      return;
+    }
     const notes = {
       tap: [360, 0.04, "sine"],
       start: [220, 0.08, "triangle"],
@@ -519,6 +530,29 @@ function tone(freq, duration, wave, start) {
   osc.connect(gain).connect(audioContext.destination);
   osc.start(start);
   osc.stop(start + duration + 0.02);
+}
+
+function bell(freq, start, duration) {
+  const osc = audioContext.createOscillator();
+  const shimmer = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  const shimmerGain = audioContext.createGain();
+
+  osc.type = "sine";
+  shimmer.type = "triangle";
+  osc.frequency.setValueAtTime(freq, start);
+  shimmer.frequency.setValueAtTime(freq * 2.01, start);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.16, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  shimmerGain.gain.setValueAtTime(0.03, start);
+  shimmerGain.gain.exponentialRampToValueAtTime(0.0001, start + duration * 0.75);
+  osc.connect(gain).connect(audioContext.destination);
+  shimmer.connect(shimmerGain).connect(audioContext.destination);
+  osc.start(start);
+  shimmer.start(start);
+  osc.stop(start + duration + 0.02);
+  shimmer.stop(start + duration + 0.02);
 }
 
 function escapeHtml(value) {
