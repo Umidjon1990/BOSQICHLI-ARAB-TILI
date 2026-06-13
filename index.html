@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bosqichli Arab Tili Game</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="level-panel" aria-label="Level tanlash">
+        <div class="brand">
+          <span class="brand-mark">&#x0639;</span>
+          <div>
+            <h1>Bosqichli Arab Tili</h1>
+            <p>A0 game kursi</p>
+          </div>
+        </div>
+
+        <div class="player-card">
+          <div>
+            <span class="eyebrow">O'quvchi progressi</span>
+            <strong id="totalStars">0 yulduz</strong>
+          </div>
+          <div class="ring" id="courseProgress">1/20</div>
+        </div>
+
+        <div class="level-grid" id="levelGrid"></div>
+      </aside>
+
+      <section class="game-area" aria-live="polite">
+        <header class="topbar">
+          <button class="icon-button" id="backToMap" title="Level xaritasi" aria-label="Level xaritasi">
+            <span>&larr;</span>
+          </button>
+          <div class="level-title">
+            <span id="lessonBadge">1-level</span>
+            <h2 id="lessonTitle">Oila va ko'rsatish olmoshlari</h2>
+          </div>
+          <div class="stats">
+            <button class="sound-button" id="soundToggle" title="Ovoz" aria-label="Ovoz">♪</button>
+            <span id="comboStat">x1</span>
+            <span id="heartStat">&#9829;&#9829;&#9829;</span>
+            <span id="scoreStat">0 ball</span>
+          </div>
+        </header>
+
+        <div class="progress-track" aria-label="Level progressi">
+          <span id="stepProgress"></span>
+        </div>
+
+        <section class="activity-card" id="activityCard">
+          <div class="stage-3d" aria-hidden="true"></div>
+        </section>
+
+        <footer class="actionbar">
+          <button class="secondary-button" id="restartLevel">Qayta boshlash</button>
+          <button class="primary-button" id="checkAnswer">Tekshirish</button>
+          <button class="primary-button hidden" id="nextStep">Keyingi</button>
+        </footer>
+      </section>
+    </main>
+
+    <script src="game-data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
