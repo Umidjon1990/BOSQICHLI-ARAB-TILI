@@ -10,8 +10,9 @@ const state = {
   matches: [],
   matchedKeys: new Set(),
   checked: false,
+  mistakes: 0,
   sound: localStorage.getItem("arabicGameSound") !== "off",
-  completedStars: Number(localStorage.getItem("arabicGameStars") || 0)
+  levelStars: loadLevelStars()
 };
 
 const activityCard = document.getElementById("activityCard");
@@ -31,6 +32,21 @@ function currentLevel() {
 
 function currentStep() {
   return currentLevel().steps[state.stepIndex];
+}
+
+function loadLevelStars() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("arabicGameLevelStars") || "{}");
+    if (Object.keys(saved).length) return saved;
+    const legacyStars = Number(localStorage.getItem("arabicGameStars") || 0);
+    return legacyStars ? { 1: Math.min(5, legacyStars) } : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function totalStars() {
+  return Object.values(state.levelStars).reduce((sum, stars) => sum + Number(stars || 0), 0);
 }
 
 function renderLevelGrid() {
@@ -64,7 +80,7 @@ function renderStats() {
   document.getElementById("heartStat").textContent = "\u2665".repeat(state.hearts) || "0";
   document.getElementById("comboStat").textContent = `x${state.combo}`;
   document.getElementById("scoreStat").textContent = `${state.score} ball`;
-  document.getElementById("totalStars").textContent = `${state.completedStars} yulduz`;
+  document.getElementById("totalStars").textContent = `${totalStars()} yulduz`;
   document.getElementById("courseProgress").textContent = `${level.id}/${COURSE.totalLevels}`;
   document.getElementById("stepProgress").style.width = `${(state.stepIndex / level.steps.length) * 100}%`;
   soundToggle.textContent = state.sound ? "\u266A" : "\u266B";
@@ -89,6 +105,7 @@ function renderActivity() {
   if (step.type === "choice") renderChoice(step);
   if (step.type === "match") renderMatch(step);
   if (step.type === "sort") renderSort(step);
+  if (step.type === "fill") renderFill(step);
   if (step.type === "build") renderBuild(step);
   if (step.type === "truefalse") renderTrueFalse(step);
   if (step.type === "dialog") renderDialog(step);
@@ -127,7 +144,7 @@ function renderLearn(step) {
         <article class="vocab-card flip-card" style="--delay:${index * 60}ms">
           <span class="arabic">${word.ar}</span>
           <strong>${word.uz}</strong>
-          <small>${word.gender === "m" ? "erkak jins" : "ayol jins"}</small>
+          <small>${word.gender ? (word.gender === "m" ? "erkak jins" : "ayol jins") : "matn so'zi"}</small>
         </article>
       `).join("")}
     </div>
@@ -178,6 +195,23 @@ function renderBuild(step) {
   checkButton.textContent = "Tekshirish";
 }
 
+function renderFill(step) {
+  activityCard.innerHTML = `
+    ${scene3d()}
+    ${head(step)}
+    <div class="sentence-card prompt-card">
+      <div class="sentence-line arabic">
+        <span>${step.sentence.split("______")[0]}</span>
+        <span class="blank">${state.selected || ""}</span>
+        <span>${step.sentence.split("______")[1] || ""}</span>
+      </div>
+    </div>
+    ${optionGrid(step.options, true)}
+  `;
+  wireOptions(() => renderFill(step));
+  checkButton.textContent = "Tekshirish";
+}
+
 function renderTrueFalse(step) {
   activityCard.innerHTML = `
     ${scene3d()}
@@ -197,7 +231,7 @@ function renderDialog(step) {
     ${scene3d()}
     ${head(step)}
     <div class="dialogue-card">
-      <div class="avatar">؟</div>
+      <div class="avatar">?</div>
       <div class="arabic">${step.prompt}</div>
     </div>
     ${optionGrid(step.options, true)}
@@ -402,6 +436,7 @@ function markCorrect(message, points) {
 }
 
 function markWrong(message) {
+  state.mistakes += 1;
   state.hearts = Math.max(0, state.hearts - 1);
   state.combo = 1;
   state.checked = true;
@@ -439,10 +474,12 @@ function nextStep() {
 }
 
 function renderComplete() {
-  const possible = currentLevel().steps.length * 12;
-  const stars = state.score >= possible * 0.72 ? 3 : state.score >= possible * 0.48 ? 2 : 1;
-  state.completedStars = Math.max(state.completedStars, stars);
-  localStorage.setItem("arabicGameStars", String(state.completedStars));
+  const level = currentLevel();
+  const stars = calculateStars();
+  const oldStars = Number(state.levelStars[level.id] || 0);
+  state.levelStars[level.id] = Math.max(oldStars, stars);
+  localStorage.setItem("arabicGameLevelStars", JSON.stringify(state.levelStars));
+  localStorage.setItem("arabicGameStars", String(totalStars()));
   document.getElementById("stepProgress").style.width = "100%";
   checkButton.classList.add("hidden");
   nextButton.classList.add("hidden");
@@ -451,17 +488,39 @@ function renderComplete() {
   activityCard.innerHTML = `
     ${scene3d()}
     <div class="completion">
-      <div class="stars">${"\u2605".repeat(stars)}${"\u2606".repeat(3 - stars)}</div>
+      <div class="stars" aria-label="${stars} ta yulduz">${renderStars(stars)}</div>
       <div class="activity-head">
-        <h3>1-level yakunlandi</h3>
-        <p>Siz oila mavzusidagi asosiy so'zlar, jins va <span class="arabic">${AR.thisM} / ${AR.thisF} / ${AR.these}</span> olmoshlarini kuchli mashq qildingiz.</p>
+        <h3>${level.id}-level yakunlandi</h3>
+        <p>${completionMessage(stars)}</p>
       </div>
       <div class="sentence-card result-card">
-        <strong>Natija:</strong> ${state.score} ball, ${state.hearts} yurak qoldi.
+        <strong>Natija:</strong> ${state.score} ball, ${state.mistakes} ta xato, ${state.hearts} yurak qoldi.
       </div>
     </div>
   `;
   renderStats();
+}
+
+function calculateStars() {
+  if (state.mistakes === 0 && state.hearts > 0) return 5;
+  if (state.mistakes === 1 && state.hearts > 0) return 4;
+  if (state.mistakes === 2 && state.hearts > 0) return 3;
+  if (state.mistakes === 3) return 2;
+  return 1;
+}
+
+function renderStars(stars) {
+  return Array.from({ length: 5 }, (_, index) => (
+    `<span class="${index < stars ? "filled" : "empty"}">\u2605</span>`
+  )).join("");
+}
+
+function completionMessage(stars) {
+  if (stars === 5) return "A'lo! Xatosiz tugatdingiz. Bu mavzu juda yaxshi mustahkamlandi.";
+  if (stars === 4) return "Juda yaxshi! Bitta xato bilan kuchli natija oldingiz.";
+  if (stars === 3) return "Yaxshi natija. Qayta o'ynasangiz 5 yulduzga chiqish mumkin.";
+  if (stars === 2) return "Mavzu tugadi, lekin yana bir marta mashq qilish foydali bo'ladi.";
+  return "Level tugadi. So'zlarni qayta ko'rib, yana urinib ko'ring.";
 }
 
 function startLevel() {
@@ -470,6 +529,7 @@ function startLevel() {
   state.score = 0;
   state.hearts = 3;
   state.combo = 1;
+  state.mistakes = 0;
   renderLevelGrid();
   renderActivity();
 }
